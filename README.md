@@ -1,4 +1,4 @@
-# legislators-social
+# us-legislators-social
 
 This project is a small experiment with all the fine data about US
 Congressional legislators over in the [congress-legislators] repository. In

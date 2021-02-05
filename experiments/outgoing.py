@@ -4,6 +4,7 @@ import re
 import csv
 import twarc
 import rtyaml
+import requests
 import requests_html
 
 http = requests_html.HTMLSession()
@@ -48,7 +49,7 @@ def main():
             if 'twitter_id' in p['social']:
                 row['user_id'] = list(p['social']['twitter_id'].keys())[0]
                 if row['url_ok'] == False:
-                    row['new_uri'] = get_new_url(row['user_id'])
+                    row['new_url'] = get_new_url(row['user_id'])
 
             out.writerow(row)
 
@@ -64,11 +65,13 @@ def check_url(url):
 
 def get_new_url(id):
     id = str(id)
-    user = next(twitter.user_lookup([id]))
-    if user:
-        return 'https://twitter.com/' + users['screen_name']
-    else:
-        return None
+    try:
+        user = next(twitter.user_lookup([id]))
+        if user:
+            return 'https://twitter.com/' + user['screen_name']
+    except requests.exceptions.HTTPError:
+        pass
+    return None
 
 if __name__ == "__main__":
     main()

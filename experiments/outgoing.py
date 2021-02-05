@@ -2,48 +2,24 @@
 
 import re
 import csv
+import twarc
 import rtyaml
 import requests_html
 
 http = requests_html.HTMLSession()
-
-def make_url(platform, username):
-    if platform == 'youtube':
-        return 'https://www.youtube.com/user/{}'.format(username)
-    elif platform == 'twitter':
-        return 'https://twitter.com/{}'.format(username)
-    elif platform == 'facebook':
-        return 'https://www.facebook.com/{}'.format(username)
-    elif platform == 'instagram':
-        return 'https://www.instagram.com/{}'.format(username)
-    else:
-        return None
-
-def check_url(url):
-    resp = http.get(url)
-    resp.html.render(sleep=10)
-    if resp.is_redirect or resp.status_code != 200:
-        return False
-    if 'twitter.com' in url and re.search(r'This account doesn’t exist', resp.html.text):
-        return False
-    elif 'facebook.com' in url and re.search(r"This Content Isn't Available Right Now", resp.html.text):
-        return False
-    elif 'instagram.com' in url and re.search(r"Sorry, this page isn't available.", resp.html.text):
-        return False
-
-    return True
+twitter = twarc.Twarc()
 
 def main():
-    legis = rtyaml.load(open('legislators-social-media-historical.yaml'))
+    legis = rtyaml.load(open('../legislators.yaml'))
     most = None
     max_accounts = 0
 
     out = csv.DictWriter(open('outgoing.csv', 'w'), fieldnames=[
         "name",
-        "twitter", "twitter_ok",
-        "youtube", "youtube_ok",
-        "facebook", "facebook_ok",
-        "instagram", "instagram_ok"
+        "url",
+        "url_ok",
+        "user_id",
+        "new_url"
     ])
 
     out.writeheader()
@@ -65,16 +41,34 @@ def main():
         # if they were in the 116 but not the 117 output their social media
         if is_116 and not is_117:
             row = {'name': p['name']['official_full']}
-            for platform, usernames in p['social'].items():
-                if len(usernames) > 1:
-                    print('yikes', usernames)
-                elif platform in ['youtube', 'facebook', 'instagram', 'twitter']:
-                    username = list(usernames.keys())[0]
-                    url = make_url(platform, username)
-                    row[platform] = url
-                    row[platform + '_ok'] = check_url(url)
+            if 'twitter' in p['social']:
+                username = list(p['social']['twitter'].keys())[0]
+                row['url'] = 'https://twitter.com/{}'.format(username)
+                row['url_ok'] = check_url(row['url'])
+            if 'twitter_id' in p['social']:
+                row['user_id'] = list(p['social']['twitter_id'].keys())[0]
+                if row['url_ok'] == False:
+                    row['new_uri'] = get_new_url(row['user_id'])
+
             out.writerow(row)
 
+def check_url(url):
+    resp = http.get(url)
+    resp.html.render(sleep=10)
+    if resp.is_redirect or resp.status_code != 200:
+        return False
+    elif re.search(r'This account doesn’t exist', resp.html.text):
+        return False
+    else:
+        return True
+
+def get_new_url(id):
+    id = str(id)
+    user = next(twitter.user_lookup([id]))
+    if user:
+        return 'https://twitter.com/' + users['screen_name']
+    else:
+        return None
 
 if __name__ == "__main__":
     main()
